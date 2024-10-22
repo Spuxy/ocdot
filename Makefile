@@ -1,6 +1,6 @@
 MODULE_DIRS = . 
-.PHONY: golangci-lint
-golangci-lint:
+.PHONY: lint
+lint:
 	@$(foreach mod,$(MODULE_DIRS), \
 		(cd $(mod) && \
 		echo "[lint] golangci-lint: $(mod)" && \
