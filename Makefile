@@ -5,3 +5,7 @@ lint:
 		(cd $(mod) && \
 		echo "[lint] golangci-lint: $(mod)" && \
 		golangci-lint run --path-prefix $(mod) ./...) &&) true
+
+.PHONY: vulncheck
+vulncheck:
+	govulncheck .
