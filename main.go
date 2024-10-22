@@ -133,5 +133,8 @@ var pathToDotfiles string
 
 func main() {
 	rootCmd.PersistentFlags().StringVar(&pathToDotfiles, "path-to-file", ".dotfiles", "path to dotfile (default is $HOME/.dotfiles)")
-	rootCmd.Execute()
+	if err := rootCmd.Execute(); err != nil {
+		log.Printf("Error occured: %s", err.Error())
+		os.Exit(1)
+	}
 }
