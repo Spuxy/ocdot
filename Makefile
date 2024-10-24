@@ -1,5 +1,6 @@
 MODULE_DIRS = . 
 BINARY_NAME = "ocdot"
+BINARY_VER = "v0.1"
 
 .PHONY: clean
 clean:
