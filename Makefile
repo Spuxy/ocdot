@@ -1,4 +1,8 @@
 MODULE_DIRS = . 
+
+build:
+	go build .
+
 .PHONY: lint
 lint:
 	@$(foreach mod,$(MODULE_DIRS), \
