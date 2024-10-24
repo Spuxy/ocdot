@@ -1,4 +1,9 @@
 MODULE_DIRS = . 
+BINARY_NAME = "ocdot"
+
+.PHONY: clean
+clean:
+	rm $(BINARY_NAME)
 
 build:
 	go build .
