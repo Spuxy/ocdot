@@ -13,3 +13,5 @@ Use this:
 ```sh
 make build
 ```
+
+### Contribution
