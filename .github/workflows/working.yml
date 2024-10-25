@@ -3,7 +3,6 @@ name: Go
 on:
   push:
     branches: [main]
-    tags: ['v*']
   pull_request:
     branches: ['*']
   
@@ -55,3 +54,4 @@ jobs:
 
     - name: vulncheck
       run: make vulncheck
+
