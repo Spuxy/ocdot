@@ -1,24 +1,29 @@
+// package ocdot
 package main
 
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/filepicker"
+	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 )
 
-type model struct {
-	filepicker   filepicker.Model
-	selectedFile string
-	quitting     bool
-	err          error
+type Model struct {
+	Files        []string
+	SyncState    string
+	SelectedFile string
+	Table        table.Model
 }
+
 type clearErrorMsg struct{}
 
 func clearErrorAfter(t time.Duration) tea.Cmd {
@@ -27,63 +32,114 @@ func clearErrorAfter(t time.Duration) tea.Cmd {
 	})
 }
 
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+// CurrentFiles func
+func CurrentFiles() ([]table.Row, error) {
+	var dotfilesRows []table.Row
+
+	rootDir := "/Users/filip.boye.kofi/dot.filesbak"
+	_, err := os.ReadDir(rootDir)
+	if err != nil {
+		fmt.Println(err)
+		return []table.Row{}, err
+	}
+	err = filepath.Walk(rootDir, func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			fmt.Printf("prevent panic by handling failure accessing a path %q: %v\n", path, err)
+			return err
+		}
+		if info.IsDir() && info.Name() == ".git" {
+			// fmt.Printf("skipping a dir without errors: %+v \n", info.Name())
+			return filepath.SkipDir
+		}
+
+		rslt := strings.Split(info.Name(), "/")
+		if len(rslt) > 1 {
+			return nil
+		}
+		// fmt.Printf("visited file or dir: %q\n", path)
+		dotfilesRows = append(dotfilesRows, []string{"✅", rslt[0], "github.com/spuxy/dot.file"})
+		return nil
+	})
+
+	if err != nil {
+		return []table.Row{}, err
+	}
+
+	return dotfilesRows, nil
+}
+
+// Update func
+func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl+c", "q":
-			m.quitting = true
+		switch msg.Type {
+		case tea.KeyCtrlC:
 			return m, tea.Quit
 		}
-	case clearErrorMsg:
-		m.err = nil
 	}
 
-	var cmd tea.Cmd
-	m.filepicker, cmd = m.filepicker.Update(msg)
-
-	// Did the user select a file?
-	if didSelect, path := m.filepicker.DidSelectFile(msg); didSelect {
-		// Get the path of the selected file.
-		m.selectedFile = path
+	rows, err := CurrentFiles()
+	if err != nil {
+		panic(err)
 	}
-
-	// Did the user select a disabled file?
-	// This is only necessary to display an error to the user.
-	if didSelect, path := m.filepicker.DidSelectDisabledFile(msg); didSelect {
-		// Let's clear the selectedFile and display an error.
-		m.err = errors.New(path + " is not valid.")
-		m.selectedFile = ""
-		return m, tea.Batch(cmd, clearErrorAfter(2*time.Second))
-	}
-
+	m.Table.SetRows(rows)
+	m.Table, cmd = m.Table.Update(msg)
 	return m, cmd
 }
-func (m model) Init() tea.Cmd {
-	return m.filepicker.Init()
+
+// Init func
+func (m Model) Init() tea.Cmd {
+	return nil
 }
 
-func (m model) View() string {
-	if m.quitting {
-		return ""
-	}
-	var s strings.Builder
-	s.WriteString("\n  ")
-	if m.err != nil {
-		s.WriteString(m.filepicker.Styles.DisabledFile.Render(m.err.Error()))
-	} else if m.selectedFile == "" {
-		s.WriteString("Pick a file:")
-	} else {
-		s.WriteString("Selected file: " + m.filepicker.Styles.Selected.Render(m.selectedFile))
-	}
-	s.WriteString("\n\n" + m.filepicker.View() + "\n")
-	return s.String()
+// // View Kekw
+//
+//	func (m Model) View() string {
+//		// return fmt.Sprintf("wtf - %d", rand.Int63n(1000))
+//
+//		rootDir := "/Users/filip.boye.kofi/dot.filesbak"
+//		_, err := os.ReadDir(rootDir)
+//		if err != nil {
+//			fmt.Println(err)
+//			return ""
+//		}
+//
+//		err = filepath.Walk(rootDir, func(path string, info fs.FileInfo, err error) error {
+//			if err != nil {
+//				fmt.Printf("prevent panic by handling failure accessing a path %q: %v\n", path, err)
+//				return err
+//			}
+//			if info.IsDir() && info.Name() == ".git" {
+//				fmt.Printf("skipping a dir without errors: %+v \n", info.Name())
+//				return filepath.SkipDir
+//			}
+//
+//			fmt.Println(strings.Split(info.Name(), "/"))
+//			// fmt.Println(strings.TrimPrefix(path, rootDir))
+//
+//			fmt.Printf("visited file or dir: %q\n", path)
+//			return nil
+//		})
+//		if err != nil {
+//			fmt.Printf("error occurred: %v\n", err)
+//			return "err"
+//		}
+//		return "nothing"
+//	}
+func (m Model) View() string {
+
+	// m.Table.SetHeight(len(dotfilesRows) + 1)
+	m.Table.SetWidth(300)
+
+	return lipgloss.NewStyle().BorderStyle(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("240")).Render(m.Table.View()) + "\n  " + m.Table.HelpView() + "\n"
+	// return baseStyle.Render(m.table.View()) + "\n  " + m.table.HelpView() + "\n"
 }
 
 var rootCmd = &cobra.Command{
 	Use:   "ocdot",
 	Short: "ocdot is dotfile managment",
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, _ []string) {
 		homeDir, err := os.UserHomeDir()
 
 		if err != nil {
@@ -91,22 +147,46 @@ var rootCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		var dotfilesPath = fmt.Sprintf("%s/%s", homeDir, pathToDotfiles)
+		fmt.Println(dotfilesPath)
 
 		if err := checkIfStowExists(); err != nil {
 			log.Printf("Error occured: %s", err.Error())
 			os.Exit(1)
 		}
 
-		fp := filepicker.New()
-		fp.AllowedTypes = []string{".mod", ".sum", ".go", ".txt", ".md"}
-		fp.CurrentDirectory = dotfilesPath
-
-		m := model{
-			filepicker: fp,
+		columns := []table.Column{
+			{Title: "Sync", Width: 5},
+			{Title: "Files", Width: 20},
+			{Title: "Source", Width: 10},
 		}
-		tm, _ := tea.NewProgram(&m).Run()
-		mm := tm.(model)
-		fmt.Println("\n  You selected: " + m.filepicker.Styles.Selected.Render(mm.selectedFile) + "\n")
+
+		t := table.New(
+			table.WithColumns(columns),
+			table.WithFocused(true),
+			table.WithHeight(7),
+		)
+		s := table.DefaultStyles()
+		s.Header = s.Header.
+			BorderStyle(lipgloss.NormalBorder()).
+			BorderForeground(lipgloss.Color("240")).
+			BorderBottom(true).
+			Bold(false)
+		s.Selected = s.Selected.
+			Foreground(lipgloss.Color("229")).
+			Background(lipgloss.Color("57")).
+			Bold(false)
+		t.SetStyles(s)
+
+		m := Model{
+			Table: t,
+		}
+		program := tea.NewProgram(m)
+		process, err := program.Run()
+		if err != nil {
+			log.Printf("Error occured: %s", err.Error())
+			os.Exit(1)
+		}
+		fmt.Println(process)
 	},
 }
 
@@ -114,7 +194,6 @@ func checkIfStowExists() error {
 	var isExists bool
 
 	if _, err := os.Stat("/usr/bin/stow"); err == nil {
-		fmt.Println("lol")
 		isExists = true
 	}
 
