@@ -1,4 +1,5 @@
-package main
+// Package foundation f
+package foundation
 
 import (
 	"errors"
@@ -8,12 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/bubbles/table"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
-	"github.com/spf13/cobra"
 	"golang.org/x/exp/slices"
 )
 
@@ -95,69 +92,8 @@ func CheckProgram(rows []table.Row, programs map[string]bool) []table.Row {
 	return finalRows
 }
 
-var rootCmd = &cobra.Command{
-	Use:   "ocdot",
-	Short: "ocdot is dotfile managment",
-	Run: func(_ *cobra.Command, _ []string) {
-		// homeDir, err := os.UserHomeDir()
-
-		// if err != nil {
-		// 	log.Printf("Error occured: %s", err.Error())
-		// 	os.Exit(1)
-		// }
-		// var dotfilesPath = fmt.Sprintf("%s/%s", homeDir, pathToDotfiles)
-		// fmt.Println(dotfilesPath)
-
-		if err := checkIfStowExists(); err != nil {
-			log.Printf("Error occured: %s", err.Error())
-			os.Exit(1)
-		}
-
-		columns := []table.Column{
-			{Title: "Sync", Width: 5},
-			{Title: "Files", Width: 20},
-			{Title: "Source", Width: 10},
-			{Title: "Source", Width: 10},
-		}
-
-		t := table.New(
-			table.WithColumns(columns),
-			table.WithFocused(true),
-			table.WithHeight(7),
-		)
-		s := table.DefaultStyles()
-		s.Header = s.Header.
-			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(lipgloss.Color("240")).
-			BorderBottom(true).
-			Bold(false)
-		s.Selected = s.Selected.
-			Foreground(lipgloss.Color("229")).
-			Background(lipgloss.Color("57")).
-			Bold(false)
-		t.SetStyles(s)
-
-		m := Model{
-			Table: t,
-		}
-		program := tea.NewProgram(m)
-		_, err := program.Run()
-		if err != nil {
-			log.Printf("Error occured: %s", err.Error())
-			os.Exit(1)
-		}
-	},
-}
-
-// clearErrorAfter func
-func clearErrorAfter(t time.Duration) tea.Cmd {
-	return tea.Tick(t, func(_ time.Time) tea.Msg {
-		return ClearErrorMsg{}
-	})
-}
-
-// checkIfStowExists func
-func checkIfStowExists() error {
+// CheckIfStowExists func
+func CheckIfStowExists() error {
 	var isExists bool
 
 	if _, err := os.Stat("/usr/bin/stow"); err == nil {
