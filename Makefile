@@ -9,6 +9,8 @@ clean:
 build:
 	go build .
 
+rebuild: clean build
+
 .PHONY: lint
 lint:
 	@$(foreach mod,$(MODULE_DIRS), \

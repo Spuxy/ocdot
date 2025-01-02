@@ -33,39 +33,50 @@ func clearErrorAfter(t time.Duration) tea.Cmd {
 }
 
 // CurrentFiles func
-func CurrentFiles() ([]table.Row, error) {
+func CurrentFiles() ([]table.Row, map[string]bool, error) {
 	var dotfilesRows []table.Row
+	programs := make(map[string]bool)
 
-	rootDir := "/Users/filip.boye.kofi/dot.filesbak"
+	rootDir := "/Users/filip.boye.kofi/dot.filesbak/"
 	_, err := os.ReadDir(rootDir)
 	if err != nil {
 		fmt.Println(err)
-		return []table.Row{}, err
+		return []table.Row{}, nil, err
 	}
 	err = filepath.Walk(rootDir, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			fmt.Printf("prevent panic by handling failure accessing a path %q: %v\n", path, err)
 			return err
 		}
+
 		if info.IsDir() && info.Name() == ".git" {
 			// fmt.Printf("skipping a dir without errors: %+v \n", info.Name())
 			return filepath.SkipDir
 		}
 
-		rslt := strings.Split(info.Name(), "/")
-		if len(rslt) > 1 {
+		if info.IsDir() {
 			return nil
 		}
-		// fmt.Printf("visited file or dir: %q\n", path)
-		dotfilesRows = append(dotfilesRows, []string{"✅", rslt[0], "github.com/spuxy/dot.file"})
+
+		dotfilesPath := strings.TrimPrefix(path, rootDir)
+		// rowPath := fmt.Sprint(info.Name())
+		rootProgramPosition := strings.Index(dotfilesPath, "/")
+		dotfilesFile := dotfilesPath[rootProgramPosition+1:]
+		program := dotfilesPath[:rootProgramPosition]
+		if _, ok := programs[program]; !ok {
+			programs[program] = true
+		}
+
+		dotfilesRows = append(dotfilesRows, []string{"✅", dotfilesFile, program, "github.com/spuxy/dot.file"})
+
 		return nil
 	})
 
 	if err != nil {
-		return []table.Row{}, err
+		return []table.Row{}, nil, err
 	}
 
-	return dotfilesRows, nil
+	return dotfilesRows, programs, nil
 }
 
 // Update func
@@ -78,14 +89,39 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 	}
-
-	rows, err := CurrentFiles()
+	// rows := []table.Row{{"k", "k", "k", "k"}}
+	rows, programs, err := CurrentFiles()
 	if err != nil {
 		panic(err)
 	}
+	rows = CheckProgram(rows, programs)
+
 	m.Table.SetRows(rows)
 	m.Table, cmd = m.Table.Update(msg)
 	return m, cmd
+}
+
+// CheckProgram wtf
+func CheckProgram(rows []table.Row, programs map[string]bool) []table.Row {
+	var finalRows []table.Row
+	for _, row := range rows {
+		_, err := os.Stat("/Users/filip.boye.kofi/" + row[1])
+		if err != nil {
+			programs[row[2]] = false
+			log.Println("Error occured: ", err)
+			continue
+		}
+	}
+	for k, _ := range programs {
+		var row table.Row
+		if w, _ := programs[k]; w == false {
+			row = table.Row{"🚫", k, "", "github.com/spuxy/dot.file"}
+		} else {
+			row = table.Row{"✅", k, "", "github.com/spuxy/dot.file"}
+		}
+		finalRows = append(finalRows, row)
+	}
+	return finalRows
 }
 
 // Init func
@@ -140,14 +176,14 @@ var rootCmd = &cobra.Command{
 	Use:   "ocdot",
 	Short: "ocdot is dotfile managment",
 	Run: func(_ *cobra.Command, _ []string) {
-		homeDir, err := os.UserHomeDir()
+		// homeDir, err := os.UserHomeDir()
 
-		if err != nil {
-			log.Printf("Error occured: %s", err.Error())
-			os.Exit(1)
-		}
-		var dotfilesPath = fmt.Sprintf("%s/%s", homeDir, pathToDotfiles)
-		fmt.Println(dotfilesPath)
+		// if err != nil {
+		// 	log.Printf("Error occured: %s", err.Error())
+		// 	os.Exit(1)
+		// }
+		// var dotfilesPath = fmt.Sprintf("%s/%s", homeDir, pathToDotfiles)
+		// fmt.Println(dotfilesPath)
 
 		if err := checkIfStowExists(); err != nil {
 			log.Printf("Error occured: %s", err.Error())
@@ -157,6 +193,7 @@ var rootCmd = &cobra.Command{
 		columns := []table.Column{
 			{Title: "Sync", Width: 5},
 			{Title: "Files", Width: 20},
+			{Title: "Source", Width: 10},
 			{Title: "Source", Width: 10},
 		}
 
@@ -211,6 +248,13 @@ func checkIfStowExists() error {
 var pathToDotfiles string
 
 func main() {
+	logFile, err := os.Create("debug.log")
+	if err != nil {
+		panic(err)
+	}
+
+	log.SetOutput(logFile)
+
 	rootCmd.PersistentFlags().StringVar(&pathToDotfiles, "path-to-file", ".dotfiles", "path to dotfile (default is $HOME/.dotfiles)")
 	if err := rootCmd.Execute(); err != nil {
 		log.Printf("Error occured: %s", err.Error())
