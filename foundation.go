@@ -14,6 +14,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
+	"golang.org/x/exp/slices"
 )
 
 // CurrentFiles func
@@ -86,6 +87,11 @@ func CheckProgram(rows []table.Row, programs map[string]bool) []table.Row {
 		}
 		finalRows = append(finalRows, row)
 	}
+
+	slices.SortFunc(finalRows, func(i, j table.Row) int {
+		return strings.Compare(i[1], j[1])
+	})
+
 	return finalRows
 }
 
@@ -135,12 +141,11 @@ var rootCmd = &cobra.Command{
 			Table: t,
 		}
 		program := tea.NewProgram(m)
-		process, err := program.Run()
+		_, err := program.Run()
 		if err != nil {
 			log.Printf("Error occured: %s", err.Error())
 			os.Exit(1)
 		}
-		fmt.Println(process)
 	},
 }
 
